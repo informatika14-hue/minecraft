@@ -3,9 +3,9 @@ console.log('🎮 Minecraft 3D - Loading...');
 // Scéna
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
-scene.fog = new THREE.Fog(0x87CEEB, 200, 500);
+scene.fog = new THREE.Fog(0x87CEEB, 300, 1000);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
 camera.position.set(0, 50, 30);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -64,8 +64,8 @@ function createBlock(x, y, z, type) {
 
 // Generování terénu
 console.log('📍 Generuji terén...');
-for (let x = -50; x <= 50; x += 10) {
-    for (let z = -50; z <= 50; z += 10) {
+for (let x = -200; x <= 200; x += 10) {
+    for (let z = -200; z <= 200; z += 10) {
         const h = Math.sin(x * 0.02) * 20 + 30;
         for (let y = 0; y < h; y += 10) {
             let t = 'stone';
