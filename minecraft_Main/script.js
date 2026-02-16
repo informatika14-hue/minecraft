@@ -44,30 +44,76 @@ const colors = {
     dirt: 0x8B7355,
     grass: 0x228B22,
     sand: 0xF4A460,
-    wood: 0xA0522D
+    wood: 0xA0522D,
+    black: 0x000000
 };
 
 let selectedBlock = 'dirt';
 
-// Systém chunků pro nekonečný svět
-const CHUNK_SIZE = 240;
-const CHUNK_RENDER_DISTANCE = 1;
-const generatedChunks = new Set();
 
-// Pooling geometrií a materiálů
-const geoPool = {};
-const matPool = {};
-function getOrCreateGeo() {
-    if (!geoPool.box) geoPool.box = new THREE.BoxGeometry(10, 10, 10);
-    return geoPool.box;
+// LocalStorage funkce
+function saveGame() {
+    const gameData = {
+        blocks: blocks,
+        player: {
+            position: { x: player.position.x, y: player.position.y, z: player.position.z },
+            yaw: player.yaw,
+            pitch: player.pitch
+        },
+        selectedBlock: selectedBlock
+    };
+    localStorage.setItem('minecraftGame', JSON.stringify(gameData));
 }
-function getOrCreateMat(color) {
-    if (!matPool[color]) matPool[color] = new THREE.MeshPhongMaterial({ color });
-    return matPool[color];
+
+function loadGame() {
+    const saved = localStorage.getItem('minecraftGame');
+    if (saved) {
+        try {
+            const gameData = JSON.parse(saved);
+            
+            // Načtení bloků
+            if (gameData.blocks) {
+                Object.keys(blocks).forEach(key => {
+                    scene.remove(blocks[key].mesh);
+                });
+                blocks = {};
+                
+                for (let key in gameData.blocks) {
+                    const b = gameData.blocks[key];
+                    createBlock(b.x, b.y, b.z, b.type);
+                }
+            }
+            
+            // Načtení pozice hráče
+            if (gameData.player) {
+                player.position.set(gameData.player.position.x, gameData.player.position.y, gameData.player.position.z);
+                player.yaw = gameData.player.yaw;
+                player.pitch = gameData.player.pitch;
+            }
+            
+            // Načtení vybraného bloku
+            if (gameData.selectedBlock) {
+                selectedBlock = gameData.selectedBlock;
+                updateBlockDisplay();
+            }
+            
+            console.log('✓ Hra načtena z localStorage');
+        } catch (e) {
+            console.error('Chyba při načítání hry:', e);
+        }
+    }
+}
+
+function updateBlockDisplay() {
+    const blockUI = document.getElementById('selectedBlockDisplay');
+    if (blockUI) {
+        blockUI.textContent = `Vybraný blok: ${selectedBlock}`;
+        blockUI.style.backgroundColor = colors[selectedBlock];
+    }
 }
 
 // Vytvoření bloku
-function createBlock(x, y, z, type) {
+function createBlock(x, y, z, type, indestructible = false) {
     const key = `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`;
     if (blocks[key]) return;
     
@@ -79,7 +125,7 @@ function createBlock(x, y, z, type) {
     mesh.receiveShadow = false;
     scene.add(mesh);
     
-    blocks[key] = { mesh, type, x, y, z };
+    blocks[key] = { mesh, type, x, y, z, indestructible };
 }
 
 // Generování jednoho chunku
@@ -148,6 +194,9 @@ function generateChunksAroundPlayer() {
 
 console.log('🌍 Nekonečný svět inicializován!');
 
+// Pokus načíst uloženou hru
+loadGame();
+
 // Raycasting
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -173,13 +222,30 @@ document.addEventListener('click', (e) => {
         for (let key in blocks) {
             if (blocks[key].mesh === hit) {
                 if (e.button === 0) {
-                    // Levé = smazat
-                    scene.remove(hit);
-                    delete blocks[key];
+                    // Levé = smazat (pokud není neničitelný)
+                    if (!blocks[key].indestructible) {
+                        scene.remove(hit);
+                        delete blocks[key];
+                        saveGame();
+                    }
                 } else if (e.button === 2) {
                     // Pravé = stavit
                     const pos = hits[0].point.clone().add(hits[0].face.normal.multiplyScalar(5));
-                    createBlock(Math.round(pos.x/10)*10, Math.round(pos.y/10)*10, Math.round(pos.z/10)*10, selectedBlock);
+                    const newBlockX = Math.round(pos.x/10)*10;
+                    const newBlockY = Math.round(pos.y/10)*10;
+                    const newBlockZ = Math.round(pos.z/10)*10;
+                    
+                    // Zkontroluj, zda by se blok překrýval s hráčem
+                    const playerDist = Math.sqrt(
+                        Math.pow(player.position.x - newBlockX, 2) +
+                        Math.pow(player.position.y - newBlockY, 2) +
+                        Math.pow(player.position.z - newBlockZ, 2)
+                    );
+                    
+                    if (playerDist > 15) {
+                        createBlock(newBlockX, newBlockY, newBlockZ, selectedBlock);
+                        saveGame();
+                    }
                 }
                 break;
             }
@@ -198,7 +264,11 @@ document.addEventListener('keydown', e => {
     if (key === 'd') keys.d = true;
     
     const bMap = {'1':'stone', '2':'dirt', '3':'grass', '4':'sand', '5':'wood'};
-    if (bMap[key]) selectedBlock = bMap[key];
+    if (bMap[key]) {
+        selectedBlock = bMap[key];
+        updateBlockDisplay();
+        saveGame();
+    }
     
     if (e.code === 'Space') {
         e.preventDefault();
@@ -245,6 +315,7 @@ document.addEventListener('keydown', e => {
 });
 
 // Update
+let saveCounter = 0;
 function update() {
     // Pokud je pauza, nic neděláme
     if (isPaused) return;
@@ -267,17 +338,49 @@ function update() {
     
     // Kolize
     player.onGround = false;
+    
     for (let key in blocks) {
         const b = blocks[key];
         const dx = player.position.x - b.x;
-        const dy = player.position.y - (b.y + 5);
+        const dy = player.position.y - b.y;
         const dz = player.position.z - b.z;
         
-        if (Math.abs(dx) < 10 && Math.abs(dy) < 15 && Math.abs(dz) < 10) {
-            if (dy > 0 && player.velocity.y < 0) {
+        // AABB (axis-aligned bounding box) kolize
+        // Kontroluj pouze Y osu pro detekci podlahy
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 12 && Math.abs(dz) < 10) {
+            // Stojí na bloku (je nad ním)
+            if (dy >= 8 && player.velocity.y <= 0) {
                 player.position.y = b.y + 15;
                 player.velocity.y = 0;
                 player.onGround = true;
+            }
+            // Narazil do stropu
+            else if (dy <= -8 && player.velocity.y > 0) {
+                player.position.y = b.y - 15;
+                player.velocity.y = 0;
+            }
+        }
+    }
+    
+    // Horizontální kolize - zabránění průchodu skrz bloky
+    for (let key in blocks) {
+        const b = blocks[key];
+        const dx = player.position.x - b.x;
+        const dy = player.position.y - b.y;
+        const dz = player.position.z - b.z;
+        
+        // Pokud je hráč uvnitř bloku horizontálně
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && Math.abs(dz) < 10) {
+            // Zjisti, která osa je nejblíže hraně
+            const distX = 10 - Math.abs(dx);
+            const distZ = 10 - Math.abs(dz);
+            
+            if (distX < distZ) {
+                // Blok je blíž v X ose - vytlač doleva/doprava
+                player.position.x = b.x + (dx > 0 ? 10 : -10);
+            } else {
+                // Blok je blíž v Z ose - vytlač dopředu/dozadu
+                player.position.z = b.z + (dz > 0 ? 10 : -10);
             }
         }
     }
@@ -288,6 +391,13 @@ function update() {
     // Kamera
     camera.position.copy(player.position);
     camera.quaternion.setFromEuler(new THREE.Euler(player.pitch, player.yaw, 0, 'YXZ'));
+    
+    // Periodické ukládání (každých 60 snímků)
+    saveCounter++;
+    if (saveCounter >= 60) {
+        saveGame();
+        saveCounter = 0;
+    }
 }
 
 // Animace
