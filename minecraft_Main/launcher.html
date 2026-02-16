@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minecraft 3D - Launcher</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #launcher {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 60px 80px;
+            border-radius: 15px;
+            border: 3px solid #4a4;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        h1 {
+            font-size: 64px;
+            color: #4a4;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #4a4;
+            font-weight: bold;
+        }
+        
+        .subtitle {
+            font-size: 20px;
+            color: #888;
+            margin-bottom: 50px;
+            letter-spacing: 2px;
+        }
+        
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        button {
+            padding: 18px 50px;
+            font-size: 20px;
+            font-weight: bold;
+            border: 2px solid #4a4;
+            background: rgba(68, 170, 68, 0.1);
+            color: #4a4;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        button:hover {
+            background: rgba(68, 170, 68, 0.3);
+            box-shadow: 0 0 20px #4a4;
+            transform: scale(1.05);
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        .controls {
+            background: rgba(50, 50, 50, 0.5);
+            padding: 20px;
+            border-radius: 5px;
+            color: #aaa;
+            font-size: 14px;
+            border: 1px solid #444;
+        }
+        
+        .controls p {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="launcher">
+        <h1>MINECRAFT 3D</h1>
+        <div class="subtitle">~ Vítejte v hře ~</div>
+        
+        <div class="button-container">
+            <button onclick="startGame()">🎮 SPUSTIT HRU</button>
+            <button onclick="showInfo()">ℹ️ OVLÁDÁNÍ</button>
+        </div>
+        
+        <div class="controls">
+            <p><strong>Ovládání:</strong></p>
+            <p>WASD: Pohyb | MEZERNÍK: Skok</p>
+            <p>LEVÝ KLIK: Smazat blok | PRAVÝ KLIK: Postavit blok</p>
+            <p>1-5: Výběr typu bloku | ESC: Pauza</p>
+        </div>
+    </div>
+    
+    <script>
+        function startGame() {
+            // Přesměrování na hru
+            window.location.href = 'index.html';
+        }
+        
+        function showInfo() {
+            alert('🎮 MINECRAFT 3D - OVLÁDÁNÍ\n\n' +
+                  'WASD: Pohyb\n' +
+                  'MEZERNÍK: Skok\n' +
+                  'LEVÝ KLIK: Smazat blok\n' +
+                  'PRAVÝ KLIK: Postavit blok\n' +
+                  '1-5: Výběr typu bloku\n' +
+                  'ESC: Pauza\n' +
+                  'P: Uvolnit kurzor\n\n' +
+                  'Užij si hru!');
+        }
+    </script>
+</body>
+</html>
