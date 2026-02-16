@@ -3,14 +3,15 @@ console.log('🎮 Minecraft 3D - Loading...');
 // Scéna
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
-scene.fog = new THREE.Fog(0x87CEEB, 300, 1000);
+scene.fog = new THREE.Fog(0x87CEEB, 200, 800);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
 camera.position.set(0, 50, 30);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x87CEEB);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 document.body.appendChild(renderer.domElement);
 
 // Osvětlení
@@ -48,34 +49,104 @@ const colors = {
 
 let selectedBlock = 'dirt';
 
+// Systém chunků pro nekonečný svět
+const CHUNK_SIZE = 240;
+const CHUNK_RENDER_DISTANCE = 1;
+const generatedChunks = new Set();
+
+// Pooling geometrií a materiálů
+const geoPool = {};
+const matPool = {};
+function getOrCreateGeo() {
+    if (!geoPool.box) geoPool.box = new THREE.BoxGeometry(10, 10, 10);
+    return geoPool.box;
+}
+function getOrCreateMat(color) {
+    if (!matPool[color]) matPool[color] = new THREE.MeshPhongMaterial({ color });
+    return matPool[color];
+}
+
 // Vytvoření bloku
 function createBlock(x, y, z, type) {
     const key = `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`;
     if (blocks[key]) return;
     
-    const geo = new THREE.BoxGeometry(10, 10, 10);
-    const mat = new THREE.MeshPhongMaterial({ color: colors[type] });
+    const geo = getOrCreateGeo();
+    const mat = getOrCreateMat(colors[type]);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x, y, z);
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
     scene.add(mesh);
     
     blocks[key] = { mesh, type, x, y, z };
 }
 
-// Generování terénu
-console.log('📍 Generuji terén...');
-for (let x = -200; x <= 200; x += 10) {
-    for (let z = -200; z <= 200; z += 10) {
-        const h = Math.sin(x * 0.02) * 20 + 30;
-        for (let y = 0; y < h; y += 10) {
-            let t = 'stone';
-            if (y > h - 10) t = 'grass';
-            else if (y > h - 20) t = 'dirt';
-            createBlock(x, y, z, t);
+// Generování jednoho chunku
+function generateChunk(chunkX, chunkZ) {
+    const chunkKey = `${chunkX},${chunkZ}`;
+    if (generatedChunks.has(chunkKey)) return;
+    generatedChunks.add(chunkKey);
+    
+    const startX = chunkX * CHUNK_SIZE;
+    const startZ = chunkZ * CHUNK_SIZE;
+    const step = 10;
+    
+    for (let x = startX; x < startX + CHUNK_SIZE; x += step) {
+        for (let z = startZ; z < startZ + CHUNK_SIZE; z += step) {
+            const h = Math.sin(x * 0.02) * 20 + Math.cos(z * 0.015) * 15 + 40;
+            
+            for (let y = 0; y < h; y += step) {
+                let t = 'stone';
+                if (y > h - 10) t = 'grass';
+                else if (y > h - 20) t = 'dirt';
+                else if (y > h - 40) t = 'stone';
+                else if (Math.random() < 0.05) t = 'sand';
+                createBlock(x, y, z, t);
+            }
         }
     }
 }
-console.log(`✓ Terénu hotov! Bloků: ${Object.keys(blocks).length}`);
+
+// Mazání staré chunků
+function removeDistantChunks(playerChunkX, playerChunkZ) {
+    for (let key of generatedChunks) {
+        const [cx, cz] = key.split(',').map(Number);
+        const dist = Math.abs(cx - playerChunkX) + Math.abs(cz - playerChunkZ);
+        
+        if (dist > CHUNK_RENDER_DISTANCE) {
+            const startX = cx * CHUNK_SIZE;
+            const startZ = cz * CHUNK_SIZE;
+            
+            for (let key in blocks) {
+                const b = blocks[key];
+                if (b.x >= startX && b.x < startX + CHUNK_SIZE &&
+                    b.z >= startZ && b.z < startZ + CHUNK_SIZE) {
+                    scene.remove(b.mesh);
+                    delete blocks[key];
+                }
+            }
+            
+            generatedChunks.delete(key);
+        }
+    }
+}
+
+// Generování chunků kolem hráče
+function generateChunksAroundPlayer() {
+    const playerChunkX = Math.floor(player.position.x / CHUNK_SIZE);
+    const playerChunkZ = Math.floor(player.position.z / CHUNK_SIZE);
+    
+    for (let dx = -CHUNK_RENDER_DISTANCE; dx <= CHUNK_RENDER_DISTANCE; dx++) {
+        for (let dz = -CHUNK_RENDER_DISTANCE; dz <= CHUNK_RENDER_DISTANCE; dz++) {
+            generateChunk(playerChunkX + dx, playerChunkZ + dz);
+        }
+    }
+    
+    removeDistantChunks(playerChunkX, playerChunkZ);
+}
+
+console.log('🌍 Nekonečný svět inicializován!');
 
 // Raycasting
 const raycaster = new THREE.Raycaster();
@@ -178,6 +249,9 @@ function update() {
     // Pokud je pauza, nic neděláme
     if (isPaused) return;
     
+    // Generování terénu kolem hráče
+    generateChunksAroundPlayer();
+    
     // Pohyb
     const forward = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(0, player.yaw, 0));
     const right = new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, player.yaw, 0));
@@ -221,6 +295,11 @@ function animate() {
     requestAnimationFrame(animate);
     update();
     renderer.render(scene, camera);
+    
+    // Aktualizace info
+    document.getElementById('blockCount').textContent = `Bloků: ${Object.keys(blocks).length}`;
+    document.getElementById('chunkCount').textContent = `Chunků: ${generatedChunks.size}`;
+    document.getElementById('playerPos').textContent = `Pozice: ${Math.floor(player.position.x)}, ${Math.floor(player.position.y)}, ${Math.floor(player.position.z)}`;
 }
 
 window.addEventListener('resize', () => {
