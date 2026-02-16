@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minecraft 3D</title>
+    <style>
+        * { margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; }
+        canvas { display: block; }
+        
+        #pauseScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        #pauseScreen.active {
+            display: flex;
+        }
+        
+        #pauseContent {
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            border: 3px solid #666;
+        }
+        
+        #pauseContent h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #4a4;
+        }
+        
+        #pauseContent p {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 30px;
+            color: white;
+            pointer-events: none;
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+    <div id="crosshair">+</div>
+    <div id="pauseScreen">
+        <div id="pauseContent">
+            <h1>PAUZA</h1>
+            <p>Stiskni ESC pro pokračování</p>
+            <p style="font-size: 16px; margin-top: 30px; color: #888;">
+                WASD: Pohyb | Space: Skok<br>
+                L-klik: Smazat | P-klik: Stavět<br>
+                1-5: Výběr bloku
+            </p>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
